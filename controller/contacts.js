@@ -1,83 +1,109 @@
-const Joi = require('joi');
-const contacts = require('../models/contacts');
+const { updateFavoriteContact } = require("../models/contacts");
+const { Contact } = require("../models/contacts");
+const { schema } = require("../shema/index");
 
-const contactSchema = Joi.object({
-  name: Joi.string().required(),
-  email: Joi.string().email().required(),
-  phone: Joi.string().required(),
-});
-
-exports.getContacts = async (req, res, next) => {
+const getAllContacts = async (req, res, next) => {
   try {
-    const result = await contacts.getContacts();
-    res.json(result);
+    const contacts = await Contact.find();
+    res.json(contacts);
   } catch (error) {
     next(error);
   }
 };
 
-exports.getContactById = async (req, res, next) => {
+const getContactById = async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const result = await contacts.getContactById(contactId);
-    if (!result) {
+    const id = req.params.contactId;
+    const contact = await Contact.findById(id);
+    if (!contact) {
       return res.status(404).json({
-        message: 'Not found',
+        message: "Contact not found",
       });
     }
-    res.json(result);
+    res.json({ contact });
   } catch (error) {
     next(error);
   }
 };
 
-exports.addContact = async (req, res, next) => {
+const createContact = async (req, res, next) => {
+  const contactData = req.body;
+  const { error } = schema.validate(contactData);
   try {
-    const { error } = contactSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
-        message: error.message,
+        message: "Missing required name field",
       });
     }
-    const result = await contacts.addContact(req.body);
-    res.status(201).json(result);
+    const newContact = await Contact.create(contactData);
+    res.status(201).json({ contact: newContact });
   } catch (error) {
     next(error);
   }
 };
 
-exports.removeContact = async (req, res, next) => {
+const deleteContactById = async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const result = await contacts.removeContact(contactId);
-    if (!result) {
+    const id = req.params.contactId;
+    const deletedContact = await Contact.findOneAndRemove(id);
+    if (!deletedContact) {
       return res.status(404).json({
-        message: 'Not found',
+        message: "Contact not found",
       });
     }
-    res.json({ message: 'Contact deleted' });
+    res.json({ message: "Contact deleted" });
   } catch (error) {
     next(error);
   }
 };
 
-exports.updateContact = async (req, res, next) => {
+const updateContact = async (req, res, next) => {
+  const contactData = req.body;
+  const { error } = schema.validate(contactData);
   try {
-    const { contactId } = req.params;
-    const { error } = contactSchema.validate(req.body);
+    const id = req.params.contactId;
+    const updatedContact = await Contact.findByIdAndUpdate(id, contactData, { new: true });
     if (error) {
       return res.status(400).json({
-        message: error.message,
+        message: "Missing fields",
       });
-    }
-    const result = await contacts.updateContact(contactId, req.body);
-    if (!result) {
+    } else if (!updatedContact) {
       return res.status(404).json({
-        message: 'Not found',
+        message: "Contact not found",
       });
     }
-    res.json(result);
+    res.json({ contact: updatedContact });
   } catch (error) {
     next(error);
   }
+};
+
+const updateContactStatus = async (req, res, next) => {
+  const statusData = req.body;
+  const { error } = updateFavoriteContact.validate(statusData);
+  try {
+    const id = req.params.contactId;
+    const updatedContact = await Contact.findByIdAndUpdate(id, statusData, { new: true });
+    if (error) {
+      return res.status(400).json({
+        message: "Missing favorite field",
+      });
+    } else if (!updatedContact) {
+      return res.status(404).json({
+        message: "Contact not found",
+      });
+    }
+    res.json({ contact: updatedContact });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getAllContacts,
+  getContactById,
+  createContact,
+  deleteContactById,
+  updateContact,
+  updateContactStatus,
 };
